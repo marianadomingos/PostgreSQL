@@ -1,0 +1,11 @@
+-- Cria a trigger que será disparada nas operações INSERT e UPDATE
+CREATE TRIGGER TR_BI_BU_NOME_DA_TABELA BEFORE INSERT OR UPDATE
+ON NOME_DA_TABELA FOR EACH ROW
+    -- Executa a função F_TR_LOGS que é a responsável pelo insert na tabela de logs
+    EXECUTE PROCEDURE F_TR_LOGS();
+
+-- Cria a trigger que será disparada na operação DELETE
+CREATE TRIGGER TR_AD_NOME_DA_TABELA AFTER DELETE
+ON NOME_DA_TABELA FOR EACH ROW
+    -- Executa a função F_TR_LOGS que é a responsável pelo insert na tabela de logs
+    EXECUTE PROCEDURE F_TR_LOGS();

@@ -1,0 +1,53 @@
+-- Cria a função F_TR_LOGS e define o tipo de retorno como Trigger
+CREATE OR REPLACE FUNCTION F_TR_LOGS()
+RETURNS trigger 
+AS $$
+-- Inicia a declaração das variaveis
+DECLARE
+  ri record
+  valor_novo TEXT;
+  valor_antigo TEXT;
+-- Inicia os comandos da função
+BEGIN
+  /* Inicia o loop nas colunas das tabelas onde a trigger foi disparada.
+  A variavel ri armazenará cada coluna durante cada execução do loop */
+  FOR ri IN
+    -- Consulta na tabela INFORMATION_SCHEMA para obter o nome das colunas onde a trigger foi disparada
+    SELECT COLUMN_NAME
+	 FROM INFORMATION_SCHEMA.COLUMNS
+	WHERE TABLE_SCHEMA = TG_TABLE_SCHEMA
+	AND TABLE_NAME = TG_TABLE_NAME
+	ORDER BY ORDINAL_POSITION
+
+  -- Inicia o loop for
+  LOOP
+	/* Executa uma consulta dinâmica para obter o valor antigo do campo da coluna atual (ri.column_name) e 
+    armazena o resultado na variável "valor_antigo". A variável "OLD" é usada para referenciar o valor 
+    antigo da linha. */
+  	EXECUTE 'SELECT ($1).' || ri.column_name || '::TEXT' INTO VALOR_NOVO USING OLD;
+    /* Executa uma consulta dinâmica para obter o valor novo do campo da coluna atual (ri.column_name) e 
+    armazena o resultado na variável "valor_novo". A variável "NEW" é usada para referenciar o valor 
+    novo da linha */
+  	EXECUTE 'SELECT ($1).' || ri.column_name || '::TEXT' INTO VALOR_ANTIGO USING NEW;
+   	
+	 -- Verifica qual operação foi realizada e insere os valores na tabela de LOG
+        IF (TG_OP = 'INSERT') THEN
+            INSERT INTO LOGS (CAMPO, TABELA, VALOR_ANTIGO, VALOR_NOVO, OPERACAO)
+            VALUES (ri.COLUMN_NAME, TG_TABLE_NAME, NULL, valor_novo, TG_OP);
+        ELSIF (TG_OP = 'UPDATE') THEN
+            /* Compara os valores e insere na tabela de LOG somente se forem diferentes, ou seja,
+            somente se hove alteração de valor em alguma coluna */
+            IF (valor_antigo <> valor_novo) THEN
+                INSERT INTO LOGS (CAMPO, TABELA, VALOR_ANTIGO, VALOR_NOVO, OPERACAO)
+                VALUES (ri.COLUMN_NAME, TG_TABLE_NAME, valor_antigo, valor_novo, TG_OP);
+            END IF;
+        ELSIF (TG_OP = 'DELETE') THEN
+            INSERT INTO LOGS (CAMPO, TABELA, VALOR_ANTIGO, VALOR_NOVO, OPERACAO)
+            VALUES (ri.COLUMN_NAME, TG_TABLE_NAME, valor_antigo, NULL, TG_OP);
+        END IF;
+	END LOOP;
+
+    -- Retorna a linha atual após o processo da trigger
+	RETURN NEW;
+END;
+$$; LANGUAGE plpgsql; 
